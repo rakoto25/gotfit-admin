@@ -1,0 +1,463 @@
+.annonces-page {
+  width: 100%;
+  animation: annoncesFadeIn 0.25s ease;
+}
+
+@keyframes annoncesFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* HEADER */
+.annonces-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 26px;
+}
+
+.annonces-page__header h1 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+  color: #101828;
+  letter-spacing: -0.04em;
+}
+
+.annonces-page__header p {
+  margin: 7px 0 0;
+  color: #667085;
+  font-size: 15px;
+}
+
+.annonces-page__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 999px;
+  padding: 11px 17px;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 16px 38px rgba(16, 24, 40, 0.07);
+  white-space: nowrap;
+}
+
+.annonces-page__count::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #12b76a;
+  box-shadow: 0 0 0 4px rgba(18, 183, 106, 0.12);
+}
+
+/* TOOLBAR */
+.annonces-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.annonces-search {
+  width: min(640px, 100%);
+  height: 52px;
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 18px;
+  padding: 0 17px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  box-shadow: 0 14px 35px rgba(16, 24, 40, 0.05);
+  transition: 0.2s ease;
+}
+
+.annonces-search:focus-within {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1),
+    0 14px 35px rgba(16, 24, 40, 0.05);
+}
+
+.annonces-search span {
+  color: #98a2b3;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.annonces-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.annonces-search input::placeholder {
+  color: #98a2b3;
+  font-weight: 500;
+}
+
+.annonces-filter {
+  height: 52px;
+  min-width: 205px;
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 18px;
+  padding: 0 16px;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 800;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 14px 35px rgba(16, 24, 40, 0.05);
+}
+
+/* ALERTS */
+.annonces-alert {
+  padding: 16px 18px;
+  border-radius: 18px;
+  margin-bottom: 22px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.annonces-alert--loading {
+  background: #eff8ff;
+  color: #175cd3;
+  border-color: #b2ddff;
+}
+
+.annonces-alert--error {
+  background: #fff1f3;
+  color: #c01048;
+  border-color: #fecdd6;
+}
+
+/* CARD */
+.annonces-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 26px;
+  padding: 16px;
+  box-shadow: 0 20px 55px rgba(16, 24, 40, 0.08);
+  overflow-x: auto;
+}
+
+/* TABLE */
+.annonces-table {
+  width: 100%;
+  min-width: 1220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.annonces-table__head,
+.annonces-table__row {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 1.5fr)
+    minmax(190px, 1fr)
+    minmax(120px, 0.65fr)
+    minmax(150px, 0.85fr)
+    minmax(130px, 0.75fr)
+    minmax(125px, 0.7fr)
+    minmax(240px, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.annonces-table__head {
+  padding: 15px 16px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f8fafc;
+  border-radius: 16px;
+  margin-bottom: 8px;
+}
+
+.annonces-table__row {
+  padding: 16px;
+  border-radius: 18px;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.annonces-table__row:not(:last-child) {
+  border-bottom: 1px solid #f0f2f7;
+}
+
+.annonces-table__row:hover {
+  background: #fbfcff;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.05);
+}
+
+/* INFO */
+.annonces-info,
+.annonces-author {
+  min-width: 0;
+}
+
+.annonces-info strong,
+.annonces-author strong {
+  display: block;
+  color: #101828;
+  font-size: 15px;
+  font-weight: 900;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.annonces-info span,
+.annonces-author span {
+  display: block;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.annonces-muted {
+  color: #667085;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* STATUS */
+.annonces-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  width: fit-content;
+}
+
+.annonces-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+
+.annonces-status--en_attente {
+  background: #fffaeb;
+  color: #b54708;
+  border-color: #fedf89;
+}
+
+.annonces-status--en_attente::before {
+  background: #f79009;
+}
+
+.annonces-status--valide {
+  background: #ecfdf3;
+  color: #067647;
+  border-color: #abefc6;
+}
+
+.annonces-status--valide::before {
+  background: #12b76a;
+}
+
+.annonces-status--refuse {
+  background: #fff1f3;
+  color: #c01048;
+  border-color: #fecdd6;
+}
+
+.annonces-status--refuse::before {
+  background: #f63d68;
+}
+
+.annonces-status--brouillon {
+  background: #f2f4f7;
+  color: #475467;
+  border-color: #d0d5dd;
+}
+
+.annonces-status--brouillon::before {
+  background: #98a2b3;
+}
+
+/* ACTIONS */
+.annonces-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.annonces-action {
+  appearance: none;
+  border: 0;
+  outline: none;
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.18s ease;
+  white-space: nowrap;
+}
+
+.annonces-action:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.annonces-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.annonces-action--validate {
+  background: #dcfae6;
+  color: #067647;
+}
+
+.annonces-action--refuse {
+  background: #ffe4e8;
+  color: #c01048;
+}
+
+.annonces-action--delete {
+  background: #111827;
+  color: #ffffff;
+}
+
+/* EMPTY */
+.annonces-empty {
+  min-height: 250px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  color: #98a2b3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-weight: 700;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1300px) {
+  .annonces-card {
+    overflow-x: auto;
+  }
+
+  .annonces-table {
+    min-width: 1220px;
+  }
+}
+
+@media (max-width: 900px) {
+  .annonces-card {
+    overflow: visible;
+  }
+
+  .annonces-table {
+    min-width: 0;
+  }
+
+  .annonces-table__head {
+    display: none;
+  }
+
+  .annonces-table__row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 18px;
+    border: 1px solid #eef0f4;
+    margin-bottom: 14px;
+    background: #ffffff;
+  }
+
+  .annonces-table__row:hover {
+    box-shadow: none;
+  }
+
+  .annonces-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-top: 6px;
+  }
+}
+
+@media (max-width: 720px) {
+  .annonces-page__header,
+  .annonces-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .annonces-search,
+  .annonces-filter {
+    width: 100%;
+  }
+
+  .annonces-page__header h1 {
+    font-size: 28px;
+  }
+
+  .annonces-page__count {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .annonces-card {
+    border-radius: 22px;
+    padding: 12px;
+  }
+
+  .annonces-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .annonces-action {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .annonces-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .annonces-info strong,
+  .annonces-author strong {
+    white-space: normal;
+  }
+}
