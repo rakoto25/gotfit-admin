@@ -1,38 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
-import api from "../api/axios";
-import "../assets/css/user.css";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { adminApi, getApiError } from "../api/admin";
+import { Icon } from "../components/admin/Icon";
+import {
+  EmptyState,
+  LoadingState,
+  MetricCard,
+  Modal,
+  Notice,
+  PageHeader,
+  StatusBadge,
+} from "../components/admin/Ui";
+import type { AccountStatus, AdminUser } from "../types/admin";
 
-type UserStatus = "en_attente" | "accepte" | "refuse";
-type UserRoleName = "Client" | "Intervenant" | "Admin";
-
-type UserRole = {
-  id?: number;
-  name?: string;
-};
-
-type ApiUser = {
-  id: number;
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  bio?: string;
-  status?: UserStatus;
-  photo?: string | null;
-  photo_url?: string | null;
-  created_at?: string;
-  roles?: UserRole[];
-};
-
+type RoleFilter = "all" | "admin" | "intervenant" | "client" | "structure";
+type StatusFilter = "all" | AccountStatus;
 type UserForm = {
   name: string;
   email: string;
   password: string;
   phone: string;
   address: string;
+  role: Exclude<RoleFilter, "all">;
+  account_status: AccountStatus;
+  siret: string;
   bio: string;
-  role: UserRoleName;
-  status: UserStatus;
+  coach_title: string;
+  coach_speciality: string;
+  coach_experience_years: string;
 };
 
 const emptyForm: UserForm = {
@@ -41,426 +35,344 @@ const emptyForm: UserForm = {
   password: "",
   phone: "",
   address: "",
+  role: "client",
+  account_status: "approved",
+  siret: "",
   bio: "",
-  role: "Client",
-  status: "accepte",
+  coach_title: "",
+  coach_speciality: "",
+  coach_experience_years: "",
 };
 
-const API_URL = import.meta.env.VITE_API_URL || "";
-
-const normalizeRole = (role?: string) => {
-  const value = (role || "").toLowerCase();
-  if (value.includes("admin")) return "Admin";
-  if (value.includes("intervenant") || value.includes("coach")) return "Intervenant";
-  return "Client";
+const normalizeStatus = (user: AdminUser): AccountStatus => {
+  const value = String(user.account_status || user.status || "pending").toLowerCase();
+  if (["approved", "active", "actif", "valide", "validé", "accepte", "accepté"].includes(value)) return "approved";
+  if (["rejected", "refuse", "refusé"].includes(value)) return "rejected";
+  if (["suspended", "suspendu", "blocked", "bloque", "bloqué"].includes(value)) return "suspended";
+  return "pending";
 };
 
-const getUserRole = (user: ApiUser): UserRoleName => {
-  const firstRole = user.roles?.[0]?.name;
-  return normalizeRole(firstRole) as UserRoleName;
+const roleSlug = (user: AdminUser): Exclude<RoleFilter, "all"> => {
+  const value = String(user.roles?.[0]?.slug || user.roles?.[0]?.name || "client").toLowerCase();
+  if (value.includes("admin")) return "admin";
+  if (value.includes("intervenant") || value.includes("coach")) return "intervenant";
+  if (value.includes("structure")) return "structure";
+  return "client";
 };
+
+const roleLabel: Record<Exclude<RoleFilter, "all">, string> = {
+  admin: "Administrateur",
+  intervenant: "Coach",
+  client: "Client",
+  structure: "Structure",
+};
+
+const statusBadge = (user: AdminUser) => {
+  const status = normalizeStatus(user);
+  if (status === "approved") return { label: "Actif", tone: "success" as const };
+  if (status === "rejected") return { label: "Refusé", tone: "danger" as const };
+  if (status === "suspended") return { label: "Suspendu", tone: "danger" as const };
+  return { label: "À valider", tone: "warning" as const };
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "Jamais";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const formFromUser = (user: AdminUser): UserForm => ({
+  name: user.name || "",
+  email: user.email || "",
+  password: "",
+  phone: user.phone || "",
+  address: user.address || "",
+  role: roleSlug(user),
+  account_status: normalizeStatus(user),
+  siret: user.siret || "",
+  bio: user.bio || "",
+  coach_title: user.coach_title || "",
+  coach_speciality: user.coach_speciality || "",
+  coach_experience_years: user.coach_experience_years === null || user.coach_experience_years === undefined ? "" : String(user.coach_experience_years),
+});
 
 export default function User() {
-  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [editing, setEditing] = useState<AdminUser | "new" | null>(null);
+  const [form, setForm] = useState<UserForm>(emptyForm);
+  const [rejecting, setRejecting] = useState<AdminUser | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionId, setActionId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | UserStatus>("all");
-  const [roleFilter, setRoleFilter] = useState<"all" | UserRoleName>("all");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
-  const [form, setForm] = useState<UserForm>(emptyForm);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const extractUsers = (payload: any): ApiUser[] => {
-    const list = payload?.users || payload?.data?.users || payload?.data || payload;
-    return Array.isArray(list)
-      ? list.map((user) => ({ ...user, status: user.status || "accepte" }))
-      : [];
-  };
-
-  const fetchUsers = async () => {
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-      setError("");
-      const response = await api.get("/users");
-      setUsers(extractUsers(response.data));
-    } catch (err) {
-      console.error(err);
-      setError("Impossible de charger les utilisateurs. Vérifie la route GET /api/users et le token admin.");
+      setUsers(await adminApi.users());
+    } catch (caught) {
+      setError(getApiError(caught, "Impossible de charger les comptes utilisateurs."));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filteredUsers = useMemo(() => {
-    const keyword = search.toLowerCase().trim();
+  useEffect(() => {
+    void Promise.resolve().then(loadUsers);
+  }, [loadUsers]);
 
+  const counts = useMemo(
+    () => ({
+      total: users.length,
+      pending: users.filter((user) => normalizeStatus(user) === "pending").length,
+      coaches: users.filter((user) => roleSlug(user) === "intervenant").length,
+      stripeReady: users.filter((user) => roleSlug(user) === "intervenant" && user.stripe_onboarding_completed).length,
+    }),
+    [users]
+  );
+
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
     return users.filter((user) => {
-      const role = getUserRole(user);
-      const text = [user.name, user.email, user.phone, user.address, role]
-        .join(" ")
-        .toLowerCase();
-
-      const matchSearch = !keyword || text.includes(keyword);
-      const matchStatus = statusFilter === "all" || user.status === statusFilter;
-      const matchRole = roleFilter === "all" || role === roleFilter;
-
-      return matchSearch && matchStatus && matchRole;
+      const haystack = [user.id, user.name, user.email, user.phone, user.siret, user.coach_speciality].join(" ").toLowerCase();
+      return (
+        (!keyword || haystack.includes(keyword)) &&
+        (roleFilter === "all" || roleSlug(user) === roleFilter) &&
+        (statusFilter === "all" || normalizeStatus(user) === statusFilter)
+      );
     });
-  }, [users, search, statusFilter, roleFilter]);
+  }, [roleFilter, search, statusFilter, users]);
 
-  const counts = useMemo(() => {
-    return users.reduce(
-      (acc, user) => {
-        const role = getUserRole(user);
-        acc.total += 1;
-        if (role === "Client") acc.clients += 1;
-        if (role === "Intervenant") acc.intervenants += 1;
-        if (role === "Admin") acc.admins += 1;
-        return acc;
-      },
-      { total: 0, clients: 0, intervenants: 0, admins: 0 }
-    );
-  }, [users]);
-
-  const openCreateModal = (role: UserRoleName = "Client") => {
-    setEditingUser(null);
-    setForm({ ...emptyForm, role });
-    setError("");
-    setSuccess("");
-    setIsModalOpen(true);
+  const applyUpdate = (updated: AdminUser) => {
+    setUsers((items) => items.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+    setSelected((item) => (item?.id === updated.id ? { ...item, ...updated } : item));
   };
 
-  const openEditModal = (user: ApiUser) => {
-    setEditingUser(user);
-    setForm({
-      name: user.name || "",
-      email: user.email || "",
-      password: "",
-      phone: user.phone || "",
-      address: user.address || "",
-      bio: user.bio || "",
-      role: getUserRole(user),
-      status: user.status || "accepte",
-    });
-    setError("");
-    setSuccess("");
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingUser(null);
+  const openCreate = () => {
+    setEditing("new");
     setForm(emptyForm);
+    setError("");
   };
 
-  const buildPayload = () => {
-    const payload: Record<string, any> = {
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      address: form.address,
-      bio: form.bio,
-      status: form.status,
-      role: form.role,
-      role_name: form.role,
-      role_id: form.role === "Admin" ? 1 : form.role === "Intervenant" ? 2 : 3,
-    };
-
-    if (form.password.trim()) {
-      payload.password = form.password;
-      payload.password_confirmation = form.password;
-    }
-
-    return payload;
+  const openEdit = (user: AdminUser) => {
+    setEditing(user);
+    setForm(formFromUser(user));
+    setError("");
   };
 
-  const saveUser = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const updateForm = (key: keyof UserForm, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
 
-    if (!editingUser && form.password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+  const saveUser = async () => {
+    if (!form.name.trim() || !form.email.trim() || (editing === "new" && form.password.length < 6)) {
+      setError("Le nom, l’e-mail et un mot de passe d’au moins 6 caractères sont requis pour un nouveau compte.");
       return;
     }
-
+    setSaving(true);
+    setError("");
+    setSuccess("");
     try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        role: form.role,
+        account_status: form.account_status,
+        siret: form.siret.replace(/\D/g, "") || null,
+        bio: form.bio.trim() || null,
+        coach_title: form.coach_title.trim() || null,
+        coach_speciality: form.coach_speciality.trim() || null,
+        coach_experience_years: form.coach_experience_years ? Number(form.coach_experience_years) : null,
+      };
+      if (form.password) payload.password = form.password;
 
-      if (editingUser) {
-        const response = await api.put(`/users/${editingUser.id}`, buildPayload());
-        const updatedUser = response.data?.user || response.data?.data || { ...editingUser, ...buildPayload(), roles: [{ name: form.role }] };
-        setUsers((prev) => prev.map((user) => (user.id === editingUser.id ? updatedUser : user)));
-        setSuccess("Utilisateur modifié avec succès.");
-      } else {
-        let response;
-        try {
-          response = await api.post("/users", buildPayload());
-        } catch (createError: any) {
-          if (createError?.response?.status === 404 || createError?.response?.status === 405) {
-            response = await api.post("/register", buildPayload());
-          } else {
-            throw createError;
-          }
-        }
-
-        const createdUser = response.data?.user || response.data?.data?.user || response.data?.data || response.data;
-        setUsers((prev) => [{ ...createdUser, roles: createdUser.roles || [{ name: form.role }], status: createdUser.status || form.status }, ...prev]);
-        setSuccess(`${form.role} créé avec succès.`);
+      if (editing === "new") {
+        const created = await adminApi.createUser(payload);
+        setUsers((items) => [created, ...items]);
+        setSuccess("Le compte a été créé.");
+      } else if (editing) {
+        applyUpdate(await adminApi.updateUser(editing.id, payload));
+        setSuccess("Le compte a été mis à jour.");
       }
-
-      closeModal();
-      fetchUsers();
-    } catch (err: any) {
-      console.error(err);
-      const apiMessage = err?.response?.data?.message || err?.response?.data?.error;
-      setError(apiMessage || "Impossible d'enregistrer. Vérifie les routes POST/PUT /api/users côté Laravel.");
+      setEditing(null);
+    } catch (caught) {
+      setError(getApiError(caught, "Impossible d’enregistrer le compte."));
     } finally {
       setSaving(false);
     }
   };
 
-  const updateUserStatus = async (userId: number, status: UserStatus) => {
+  const changeStatus = async (user: AdminUser, status: AccountStatus, reason?: string) => {
+    setActionId(user.id);
+    setError("");
+    setSuccess("");
     try {
-      setActionLoading(userId);
-      setError("");
-      await api.put(`/users/${userId}`, { status });
-      setUsers((prevUsers) => prevUsers.map((user) => (user.id === userId ? { ...user, status } : user)));
-    } catch (err) {
-      console.error(err);
-      setError("Impossible de modifier le statut. Vérifie la route PUT /api/users/{id}.");
+      applyUpdate(await adminApi.validateUser(user.id, status, reason));
+      setSuccess(status === "approved" ? "Compte autorisé." : status === "suspended" ? "Compte suspendu." : "Compte refusé.");
+      setRejecting(null);
+      setRejectionReason("");
+    } catch (caught) {
+      setError(getApiError(caught, "Le statut du compte n’a pas pu être modifié."));
     } finally {
-      setActionLoading(null);
+      setActionId(null);
     }
   };
 
-  const deleteUser = async (user: ApiUser) => {
-    const confirmDelete = window.confirm(`Voulez-vous vraiment supprimer ${user.name || "cet utilisateur"} ?`);
-    if (!confirmDelete) return;
-
+  const toggleSiret = async (user: AdminUser) => {
+    setActionId(user.id);
+    setError("");
     try {
-      setActionLoading(user.id);
-      setError("");
-      await api.delete(`/users/${user.id}`);
-      setUsers((prevUsers) => prevUsers.filter((item) => item.id !== user.id));
-      setSuccess("Utilisateur supprimé avec succès.");
-    } catch (err) {
-      console.error(err);
-      setError("Impossible de supprimer l'utilisateur. Vérifie la route DELETE /api/users/{id}.");
+      applyUpdate(await adminApi.verifySiret(user.id, !user.siret_verified_at));
+      setSuccess(user.siret_verified_at ? "La vérification SIRET a été retirée." : "Le SIRET a été vérifié.");
+    } catch (caught) {
+      setError(getApiError(caught, "La vérification du SIRET a échoué."));
     } finally {
-      setActionLoading(null);
+      setActionId(null);
     }
   };
 
-  const getRoleLabel = (user: ApiUser) => getUserRole(user);
-  const getUserInitial = (name?: string) => name?.charAt(0)?.toUpperCase() || "U";
-
-  const getStatusLabel = (status?: UserStatus) => {
-    switch (status) {
-      case "accepte":
-        return "Accepté";
-      case "refuse":
-        return "Refusé";
-      case "en_attente":
-      default:
-        return "En attente";
+  const removeUser = async (user: AdminUser) => {
+    if (!window.confirm(`Supprimer définitivement le compte de ${user.name || user.email} ?`)) return;
+    setActionId(user.id);
+    setError("");
+    try {
+      await adminApi.deleteUser(user.id);
+      setUsers((items) => items.filter((item) => item.id !== user.id));
+      setSelected(null);
+      setSuccess("Compte supprimé.");
+    } catch (caught) {
+      setError(getApiError(caught, "Impossible de supprimer ce compte."));
+    } finally {
+      setActionId(null);
     }
-  };
-
-  const formatDate = (date?: string) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
   };
 
   return (
-    <div className="users-page">
-      <div className="users-page__header">
-        <div>
-          <h1>Utilisateurs</h1>
-          <p>Création, modification et suppression des clients et intervenants GotFit.</p>
-        </div>
+    <div className="ops-page">
+      <PageHeader
+        eyebrow="Comptes & habilitations"
+        title="Utilisateurs"
+        description="Pilotez l’onboarding, les rôles, la conformité professionnelle, Stripe et l’accès à la plateforme."
+        actions={<><button type="button" className="ops-button ops-button--secondary" onClick={loadUsers}><Icon name="refresh" size={16}/> Actualiser</button><button type="button" className="ops-button ops-button--primary" onClick={openCreate}><Icon name="users" size={16}/> Nouveau compte</button></>}
+      />
 
-        <div className="users-header-actions">
-          <button type="button" className="users-primary-btn users-primary-btn--light" onClick={() => openCreateModal("Client")}>
-            + Client
-          </button>
-          <button type="button" className="users-primary-btn" onClick={() => openCreateModal("Intervenant")}>
-            + Intervenant
-          </button>
-        </div>
-      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      {success && <Notice tone="success">{success}</Notice>}
 
-      <div className="users-mini-stats">
-        <button type="button" className={roleFilter === "all" ? "active" : ""} onClick={() => setRoleFilter("all")}>
-          <span>Total</span><strong>{counts.total}</strong>
-        </button>
-        <button type="button" className={roleFilter === "Client" ? "active" : ""} onClick={() => setRoleFilter("Client")}>
-          <span>Clients</span><strong>{counts.clients}</strong>
-        </button>
-        <button type="button" className={roleFilter === "Intervenant" ? "active" : ""} onClick={() => setRoleFilter("Intervenant")}>
-          <span>Intervenants</span><strong>{counts.intervenants}</strong>
-        </button>
-        <button type="button" className={roleFilter === "Admin" ? "active" : ""} onClick={() => setRoleFilter("Admin")}>
-          <span>Admins</span><strong>{counts.admins}</strong>
-        </button>
-      </div>
+      <section className="ops-metrics">
+        <MetricCard label="Utilisateurs" value={counts.total} detail="Tous les rôles" icon="users"/>
+        <MetricCard label="À valider" value={counts.pending} detail="Décision requise" icon="clock" tone="orange"/>
+        <MetricCard label="Coachs" value={counts.coaches} detail="Intervenants inscrits" icon="shield" tone="green"/>
+        <MetricCard label="Stripe opérationnel" value={counts.stripeReady} detail="Coachs prêts au reversement" icon="payment" tone="blue"/>
+      </section>
 
-      <div className="users-toolbar">
-        <div className="users-search">
-          <span>⌕</span>
-          <input type="text" placeholder="Rechercher par nom, email, téléphone ou rôle..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+      <section className="ops-toolbar">
+        <label className="ops-search"><Icon name="search" size={18}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nom, e-mail, téléphone, SIRET, spécialité…"/></label>
+        <select className="ops-select" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}><option value="all">Tous les rôles</option><option value="intervenant">Coachs</option><option value="client">Clients</option><option value="structure">Structures</option><option value="admin">Administrateurs</option></select>
+        <select className="ops-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Tous les statuts</option><option value="pending">À valider</option><option value="approved">Actifs</option><option value="rejected">Refusés</option><option value="suspended">Suspendus</option></select>
+      </section>
 
-        <select className="users-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | UserStatus)}>
-          <option value="all">Tous les statuts</option>
-          <option value="en_attente">En attente</option>
-          <option value="accepte">Accepté</option>
-          <option value="refuse">Refusé</option>
-        </select>
-      </div>
+      <section className="ops-panel">
+        <header className="ops-panel__header"><div><h2>Répertoire opérationnel</h2><p>{filtered.length} compte(s) affiché(s)</p></div></header>
+        {loading ? <LoadingState label="Chargement des utilisateurs…"/> : filtered.length ? (
+          <div className="ops-table-wrap">
+            <table className="ops-table">
+              <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Compte</th><th>Conformité coach</th><th>Dernière activité</th><th>Actions</th></tr></thead>
+              <tbody>
+                {filtered.map((user) => {
+                  const badge = statusBadge(user);
+                  const role = roleSlug(user);
+                  return (
+                    <tr key={user.id}>
+                      <td><div className="ops-identity"><span className="ops-identity__avatar">{user.photo_url ? <img src={user.photo_url} alt=""/> : (user.name || "GF").slice(0, 2)}</span><div><strong>{user.name || `Utilisateur #${user.id}`}</strong><span>{user.email || user.phone || "Coordonnées indisponibles"}</span></div></div></td>
+                      <td><StatusBadge tone={role === "admin" ? "dark" : role === "intervenant" ? "info" : "neutral"}>{roleLabel[role]}</StatusBadge></td>
+                      <td><StatusBadge tone={badge.tone}>{badge.label}</StatusBadge></td>
+                      <td>{role === "intervenant" ? <div className="ops-stack"><strong>{user.siret_verified_at ? "SIRET vérifié" : user.siret ? "SIRET à vérifier" : "SIRET absent"}</strong><span>{user.stripe_onboarding_completed ? "Stripe opérationnel" : "Stripe incomplet"}</span></div> : "—"}</td>
+                      <td><div className="ops-stack"><strong>{formatDate(user.last_login_at)}</strong><span>Inscrit le {formatDate(user.created_at)}</span></div></td>
+                      <td><div className="ops-row-actions">
+                        <button type="button" className="ops-row-action" onClick={() => setSelected(user)}><Icon name="eye" size={13}/> Dossier</button>
+                        {normalizeStatus(user) !== "approved" && <button type="button" className="ops-row-action success" disabled={actionId === user.id} onClick={() => changeStatus(user, "approved")}><Icon name="check" size={13}/> Autoriser</button>}
+                        {normalizeStatus(user) === "pending" && <button type="button" className="ops-row-action danger" onClick={() => { setRejecting(user); setRejectionReason(""); }}><Icon name="reject" size={13}/> Refuser</button>}
+                      </div></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : <EmptyState icon="users" title="Aucun compte" description="Aucun utilisateur ne correspond aux filtres sélectionnés."/>}
+      </section>
 
-      {loading && <div className="users-alert users-alert--loading">Chargement des utilisateurs...</div>}
-      {error && <div className="users-alert users-alert--error">{error}</div>}
-      {success && <div className="users-alert users-alert--success">{success}</div>}
-
-      {!loading && (
-        <div className="users-card">
-          {filteredUsers.length > 0 ? (
-            <div className="users-table">
-              <div className="users-table__head">
-                <span>Utilisateur</span>
-                <span>Rôle</span>
-                <span>Téléphone</span>
-                <span>Adresse</span>
-                <span>Statut</span>
-                <span>Date</span>
-                <span>Actions</span>
-              </div>
-
-              {filteredUsers.map((user) => (
-                <div className="users-table__row" key={user.id}>
-                  <div className="users-profile">
-                    {user.photo_url || user.photo ? (
-                      <img src={user.photo_url || `${API_URL.replace("/api", "")}/storage/${user.photo}`} alt={user.name || "Utilisateur"} />
-                    ) : (
-                      <div className="users-profile__avatar">{getUserInitial(user.name)}</div>
-                    )}
-
-                    <div>
-                      <strong>{user.name || "Utilisateur sans nom"}</strong>
-                      <span>{user.email || "Email non renseigné"}</span>
-                    </div>
-                  </div>
-
-                  <div><span className={`users-role users-role--${getRoleLabel(user).toLowerCase()}`}>{getRoleLabel(user)}</span></div>
-                  <div className="users-muted">{user.phone || "Non renseigné"}</div>
-                  <div className="users-muted">{user.address || "Non renseignée"}</div>
-                  <div><span className={`users-status users-status--${user.status}`}>{getStatusLabel(user.status)}</span></div>
-                  <div className="users-muted">{formatDate(user.created_at)}</div>
-
-                  <div className="users-actions">
-                    {user.status !== "accepte" && (
-                      <button type="button" className="users-action users-action--accept" disabled={actionLoading === user.id} onClick={() => updateUserStatus(user.id, "accepte")}>
-                        Accepter
-                      </button>
-                    )}
-                    {user.status !== "refuse" && (
-                      <button type="button" className="users-action users-action--refuse" disabled={actionLoading === user.id} onClick={() => updateUserStatus(user.id, "refuse")}>
-                        Refuser
-                      </button>
-                    )}
-                    <button type="button" className="users-action users-action--edit" disabled={actionLoading === user.id} onClick={() => openEditModal(user)}>
-                      Modifier
-                    </button>
-                    <button type="button" className="users-action users-action--delete" disabled={actionLoading === user.id} onClick={() => deleteUser(user)}>
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="users-empty">Aucun utilisateur trouvé.</div>
-          )}
-        </div>
+      {selected && !editing && !rejecting && (
+        <Modal
+          eyebrow={`Compte USR-${String(selected.id).padStart(5, "0")}`}
+          title={selected.name || "Dossier utilisateur"}
+          onClose={() => setSelected(null)}
+          footer={
+            <>
+              <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => removeUser(selected)}><Icon name="trash" size={14}/> Supprimer</button>
+              {normalizeStatus(selected) === "approved" ? <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "suspended")}>Suspendre</button> : <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "approved")}>Autoriser</button>}
+              {roleSlug(selected) === "intervenant" && selected.siret && <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => toggleSiret(selected)}>{selected.siret_verified_at ? "Retirer la vérification SIRET" : "Vérifier le SIRET"}</button>}
+              <button type="button" className="ops-button ops-button--primary" onClick={() => openEdit(selected)}><Icon name="settings" size={14}/> Modifier</button>
+            </>
+          }
+        >
+          <div className="ops-detail-grid">
+            <div className="ops-detail"><span>Rôle</span><strong>{roleLabel[roleSlug(selected)]}</strong></div>
+            <div className="ops-detail"><span>Statut du compte</span><strong>{statusBadge(selected).label}</strong></div>
+            <div className="ops-detail"><span>E-mail</span><strong>{selected.email || "Non renseigné"}</strong></div>
+            <div className="ops-detail"><span>Téléphone</span><strong>{selected.phone || "Non renseigné"}</strong></div>
+            <div className="ops-detail ops-detail--wide"><span>Adresse</span><strong>{selected.address || "Non renseignée"}</strong></div>
+            {roleSlug(selected) === "intervenant" && <><div className="ops-detail"><span>SIRET</span><strong>{selected.siret || "Non renseigné"}<br/>{selected.siret_verified_at ? `Vérifié le ${formatDate(selected.siret_verified_at)}` : "Non vérifié"}</strong></div><div className="ops-detail"><span>Compte Stripe</span><strong>{selected.stripe_onboarding_completed ? "Onboarding terminé" : "Onboarding incomplet"}<br/>{selected.stripe_account_id || "Aucun compte lié"}</strong></div><div className="ops-detail"><span>Positionnement</span><strong>{selected.coach_title || selected.coach_speciality || "Non renseigné"}</strong></div></>}
+            {selected.bio && <div className="ops-detail ops-detail--wide"><span>Présentation</span><strong>{selected.bio}</strong></div>}
+            {selected.rejection_reason && <div className="ops-detail ops-detail--wide"><span>Motif de refus</span><strong>{selected.rejection_reason}</strong></div>}
+          </div>
+        </Modal>
       )}
 
-      {isModalOpen && (
-        <div className="users-modal-backdrop" role="dialog" aria-modal="true">
-          <div className="users-modal">
-            <div className="users-modal__head">
-              <div>
-                <h2>{editingUser ? "Modifier l'utilisateur" : `Créer un ${form.role.toLowerCase()}`}</h2>
-                <p>{editingUser ? "Mets à jour les informations du compte." : "Le compte sera créé directement depuis le webadmin."}</p>
-              </div>
-              <button type="button" onClick={closeModal}>×</button>
-            </div>
-
-            <form onSubmit={saveUser} className="users-form">
-              <div className="users-form__grid">
-                <label>
-                  Nom complet
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-                </label>
-                <label>
-                  Email
-                  <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                </label>
-                <label>
-                  Mot de passe {editingUser && <small>(laisser vide pour ne pas changer)</small>}
-                  <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editingUser} minLength={editingUser ? undefined : 6} />
-                </label>
-                <label>
-                  Téléphone
-                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </label>
-                <label>
-                  Rôle
-                  <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRoleName })}>
-                    <option value="Client">Client</option>
-                    <option value="Intervenant">Intervenant</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </label>
-                <label>
-                  Statut
-                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as UserStatus })}>
-                    <option value="accepte">Accepté</option>
-                    <option value="en_attente">En attente</option>
-                    <option value="refuse">Refusé</option>
-                  </select>
-                </label>
-              </div>
-
-              <label>
-                Adresse
-                <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-              </label>
-
-              <label>
-                Bio / spécialité intervenant
-                <textarea rows={4} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Exemple : coach fitness, yoga, nutrition..." />
-              </label>
-
-              <div className="users-modal__actions">
-                <button type="button" className="users-secondary-btn" onClick={closeModal}>Annuler</button>
-                <button type="submit" className="users-primary-btn" disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</button>
-              </div>
-            </form>
+      {editing && (
+        <Modal
+          eyebrow={editing === "new" ? "Création administrateur" : `Modification USR-${String(editing.id).padStart(5, "0")}`}
+          title={editing === "new" ? "Créer un compte" : "Modifier le compte"}
+          onClose={() => setEditing(null)}
+          footer={<><button type="button" className="ops-button ops-button--secondary" onClick={() => setEditing(null)}>Annuler</button><button type="button" className="ops-button ops-button--primary" disabled={saving} onClick={saveUser}>{saving ? "Enregistrement…" : "Enregistrer"}</button></>}
+        >
+          <div className="ops-form-grid">
+            <label className="ops-field"><span>Nom complet *</span><input value={form.name} onChange={(event) => updateForm("name", event.target.value)} placeholder="Nom et prénom"/></label>
+            <label className="ops-field"><span>Adresse e-mail *</span><input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="nom@exemple.fr"/></label>
+            <label className="ops-field"><span>{editing === "new" ? "Mot de passe *" : "Nouveau mot de passe"}</span><input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} placeholder={editing === "new" ? "6 caractères minimum" : "Laisser vide pour conserver"}/></label>
+            <label className="ops-field"><span>Téléphone</span><input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+33…"/></label>
+            <label className="ops-field"><span>Rôle</span><select value={form.role} onChange={(event) => updateForm("role", event.target.value)}><option value="client">Client</option><option value="intervenant">Coach</option><option value="structure">Structure</option><option value="admin">Administrateur</option></select></label>
+            <label className="ops-field"><span>Statut du compte</span><select value={form.account_status} onChange={(event) => updateForm("account_status", event.target.value)}><option value="approved">Actif</option><option value="pending">À valider</option><option value="rejected">Refusé</option><option value="suspended">Suspendu</option></select></label>
+            <label className="ops-field ops-detail--wide"><span>Adresse</span><input value={form.address} onChange={(event) => updateForm("address", event.target.value)} placeholder="Adresse postale"/></label>
+            {(form.role === "intervenant" || form.role === "structure") && <label className="ops-field"><span>SIRET (14 chiffres)</span><input value={form.siret} onChange={(event) => updateForm("siret", event.target.value)} maxLength={18} placeholder="123 456 789 00012"/></label>}
+            {form.role === "intervenant" && <><label className="ops-field"><span>Titre professionnel</span><input value={form.coach_title} onChange={(event) => updateForm("coach_title", event.target.value)} placeholder="Coach sportif certifié"/></label><label className="ops-field"><span>Spécialité</span><input value={form.coach_speciality} onChange={(event) => updateForm("coach_speciality", event.target.value)} placeholder="Remise en forme, yoga…"/></label><label className="ops-field"><span>Années d’expérience</span><input type="number" min="0" max="80" value={form.coach_experience_years} onChange={(event) => updateForm("coach_experience_years", event.target.value)}/></label></>}
+            <label className="ops-field ops-detail--wide"><span>Présentation</span><textarea value={form.bio} onChange={(event) => updateForm("bio", event.target.value)} placeholder="Informations administratives ou présentation publique…"/></label>
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {rejecting && (
+        <Modal
+          eyebrow="Décision d’onboarding"
+          title={`Refuser le compte de ${rejecting.name || rejecting.email}`}
+          onClose={() => setRejecting(null)}
+          footer={<><button type="button" className="ops-button ops-button--secondary" onClick={() => setRejecting(null)}>Annuler</button><button type="button" className="ops-button ops-button--danger" disabled={actionId === rejecting.id || !rejectionReason.trim()} onClick={() => changeStatus(rejecting, "rejected", rejectionReason.trim())}>Confirmer le refus</button></>}
+        >
+          <Notice tone="info">Précisez la raison afin que le dossier puisse être corrigé et réexaminé.</Notice>
+          <label className="ops-field" style={{ marginTop: 14 }}><span>Motif du refus</span><textarea value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Pièces manquantes, informations incohérentes…"/></label>
+        </Modal>
       )}
     </div>
   );

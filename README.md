@@ -1,74 +1,50 @@
-# React + TypeScript + Vite
+# GotFit Operations
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Console d’administration React/Vite connectée à l’API Laravel GotFit.
 
-Currently, two official plugins are available:
+## Fonctionnalités
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- tableau de bord alimenté par les indicateurs réels de Laravel ;
+- validation, refus et suppression des annonces coachs et demandes clients ;
+- validation des prestations, résolution des litiges, remboursements et reversements Stripe Connect ;
+- contrôle des documents professionnels avec motif de refus ;
+- validation, suspension et gestion des comptes, des rôles et du SIRET ;
+- réglage des frais client et de la commission coach ;
+- messagerie individuelle et diffusion groupée aux coachs ;
+- interface responsive dédiée aux opérations administratives.
 
-## React Compiler
+## Configuration
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Copier `.env.example` vers `.env.production` puis adapter l’URL :
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_API_URL=https://api.gotfit.tech/api
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+L’URL doit se terminer par `/api`. Le token Laravel Sanctum est ajouté automatiquement aux requêtes.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Développement et contrôle
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm ci
+npm run dev
+npm run lint
+npm run build
 ```
-# gotfit-admin
+
+Le build de production est généré dans `dist/`.
+
+## Routes Laravel utilisées
+
+La console repose sur les routes admin déjà présentes dans le dépôt `gotfit` :
+
+- `/admin/dashboard`, `/users` et `/users/{id}/validate` ;
+- `/getAllAnnonce`, `/annonces/{id}/valide` et `/annonces/{id}/refuser` ;
+- `/documents`, `/documents/{id}/valider` et `/documents/{id}/refuser` ;
+- `/reservation/all`, `/validate-prestation`, `/transfer-to-coach`, `/refund` et `/resolve-dispute` ;
+- `/admin/payments` et `/admin/business-settings` ;
+- `/admin/messages` et `/admin/messages/broadcast-coaches`.
+
+Toutes les opérations sensibles restent contrôlées côté Laravel par `auth:sanctum` et le rôle administrateur.
+
+Consulter `DEPLOIEMENT_GOTFIT_ADMIN_2026-08-25.md` pour la mise en production sur le VPS.

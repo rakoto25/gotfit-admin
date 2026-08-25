@@ -1,94 +1,151 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { getApiError } from "../api/admin";
+import { Icon } from "../components/admin/Icon";
+import { Notice } from "../components/admin/Ui";
+
+type LoginUser = {
+  id?: number;
+  name?: string;
+  email?: string;
+  roles?: Array<{ name?: string; slug?: string }>;
+};
+
+type LoginPayload = {
+  token?: string;
+  access_token?: string;
+  user?: LoginUser;
+  admin?: LoginUser;
+  data?: {
+    token?: string;
+    user?: LoginUser;
+  };
+};
 
 export default function LoginPage() {
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = async (e: FormEvent) => {
-    e.preventDefault();
-
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const response = await api.post("/login", {
-        email,
-        password,
-      });
-
-      const token =
-        response.data.token ||
-        response.data.access_token ||
-        response.data.data?.token;
+      const response = await api.post<LoginPayload>("/login", { email, password });
+      const payload = response.data;
+      const token = payload.token || payload.access_token || payload.data?.token;
+      const user = payload.user || payload.admin || payload.data?.user;
 
       if (!token) {
-        setError("Token non trouvé dans la réponse API.");
-        return;
+        throw new Error("Le serveur n’a retourné aucun jeton de connexion.");
+      }
+
+      const roles = user?.roles || [];
+      const roleIsKnown = roles.length > 0;
+      const isAdmin = roles.some((role) =>
+        [role.name, role.slug].some((value) => value?.toLowerCase().includes("admin"))
+      );
+
+      if (roleIsKnown && !isAdmin) {
+        throw new Error("Ce compte ne possède pas les droits administrateur.");
       }
 
       localStorage.setItem("admin_token", token);
-
-      const user = response.data.user || response.data.admin || response.data.data?.user;
-      if (user) {
-        localStorage.setItem("admin_user", JSON.stringify(user));
-      }
-
-      navigate("/");
-    } catch (error: any) {
-      console.error("Erreur login:", error.response?.data || error.message);
-      setError("Email ou mot de passe incorrect.");
+      if (user) localStorage.setItem("admin_user", JSON.stringify(user));
+      navigate("/", { replace: true });
+    } catch (caught) {
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("admin_user");
+      const message = caught instanceof Error
+        ? caught.message
+        : getApiError(caught, "Email ou mot de passe incorrect.");
+      setError(message === "Network Error"
+        ? "L’API GotFit est inaccessible. Vérifiez VITE_API_URL et le serveur Laravel."
+        : getApiError(caught, message));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-      <div className="card border-0 shadow-sm" style={{ width: "420px" }}>
-        <div className="card-body p-4">
-          <h3 className="text-center mb-4">Connexion Admin</h3>
+    <div className="login-shell">
+      <section className="login-story">
+        <div className="login-brand">
+          <span className="admin-brand__mark">GF</span>
+          <strong>GotFit Operations</strong>
+        </div>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+        <div className="login-story__content">
+          <span>Console d’infogérance</span>
+          <h1>Pilotez la confiance, les flux et la croissance.</h1>
+          <p>
+            Une vue opérationnelle unique pour modérer la marketplace, certifier les coachs,
+            suivre les réservations et sécuriser chaque mouvement financier.
+          </p>
+          <div className="login-capabilities">
+            <span>Modération en temps réel</span>
+            <span>Paiements Stripe Connect</span>
+            <span>Conformité coachs</span>
+          </div>
+        </div>
 
-          <form onSubmit={handleLogin}>
-            <div className="mb-3">
-              <label className="form-label">Adresse email</label>
+        <span className="login-version">Accès réservé aux administrateurs GotFit</span>
+      </section>
+
+      <section className="login-panel">
+        <div className="login-card">
+          <div className="login-card__mobile-brand">
+            <span className="admin-brand__mark">GF</span>
+            <strong>GotFit Operations</strong>
+          </div>
+
+          <span>Espace sécurisé</span>
+          <h2>Bon retour.</h2>
+          <p>Connectez-vous avec votre compte administrateur pour accéder aux opérations.</p>
+
+          {error && <Notice tone="error">{error}</Notice>}
+
+          <form className="login-form" onSubmit={handleLogin}>
+            <label className="ops-field">
+              <span>Adresse email</span>
               <input
                 type="email"
-                className="form-control"
-                placeholder="admin@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="admin@gotfit.tech"
                 required
               />
-            </div>
+            </label>
 
-            <div className="mb-3">
-              <label className="form-label">Mot de passe</label>
+            <label className="ops-field">
+              <span>Mot de passe</span>
               <input
                 type="password"
-                className="form-control"
-                placeholder="********"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="Votre mot de passe"
                 required
               />
-            </div>
+            </label>
 
-            <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
+            <button type="submit" className="login-submit" disabled={loading}>
+              {loading ? <><span className="ops-spinner"/>Connexion…</> : <>Accéder à la console<Icon name="arrow" size={18}/></>}
             </button>
           </form>
+
+          <div className="login-security">
+            <Icon name="shield" size={16}/>
+            Authentification protégée par Laravel Sanctum.
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

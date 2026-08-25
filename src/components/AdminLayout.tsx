@@ -1,8 +1,63 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import "../assets/css/AdminLayout.css"
+import { useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Icon, type IconName } from "./admin/Icon";
+
+type StoredAdmin = {
+  name?: string;
+  email?: string;
+};
+
+type NavigationItem = {
+  to: string;
+  label: string;
+  icon: IconName;
+  end?: boolean;
+};
+
+const navigation: Array<{ title: string; items: NavigationItem[] }> = [
+  {
+    title: "Pilotage",
+    items: [
+      { to: "/", label: "Vue d’ensemble", icon: "dashboard", end: true },
+      { to: "/users", label: "Utilisateurs", icon: "users" },
+      { to: "/annonces", label: "Modération annonces", icon: "announcement" },
+      { to: "/documents", label: "Conformité coachs", icon: "document" },
+    ],
+  },
+  {
+    title: "Opérations",
+    items: [
+      { to: "/reservations", label: "Réservations", icon: "calendar" },
+      { to: "/paiements", label: "Paiements & reversements", icon: "payment" },
+      { to: "/messages", label: "Communications", icon: "message" },
+    ],
+  },
+];
+
+const pageTitles: Record<string, string> = {
+  "/": "Vue d’ensemble",
+  "/users": "Gestion des utilisateurs",
+  "/annonces": "Modération des annonces",
+  "/documents": "Documents professionnels",
+  "/reservations": "Supervision des réservations",
+  "/paiements": "Opérations financières",
+  "/messages": "Communications",
+};
+
+const readAdmin = (): StoredAdmin => {
+  try {
+    return JSON.parse(localStorage.getItem("admin_user") || "{}") as StoredAdmin;
+  } catch {
+    return {};
+  }
+};
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminUser] = useState(readAdmin);
+  const pageTitle = pageTitles[location.pathname] || "Console GotFit";
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
@@ -10,138 +65,96 @@ export default function AdminLayout() {
     navigate("/login");
   };
 
-  const adminUser = JSON.parse(localStorage.getItem("admin_user") || "null");
+  const closeSidebar = () => setSidebarOpen(false);
 
   return (
-    <div className="gotfit-admin">
-      <aside className="gotfit-sidebar">
-        <div className="gotfit-sidebar__brand">
-          <div className="gotfit-sidebar__logo">G</div>
+    <div className="admin-shell">
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="admin-sidebar-scrim"
+          onClick={closeSidebar}
+          aria-label="Fermer le menu"
+        />
+      )}
 
-          <div>
-            <h4>GotFit</h4>
-            <span>WebAdmin</span>
+      <aside className={"admin-sidebar" + (sidebarOpen ? " open" : "")}>
+        <button
+          type="button"
+          className="ops-icon-button admin-sidebar-close"
+          onClick={closeSidebar}
+          aria-label="Fermer le menu"
+        >
+          <Icon name="close" />
+        </button>
+
+        <Link to="/" className="admin-brand" onClick={closeSidebar}>
+          <span className="admin-brand__mark">GF</span>
+          <span>
+            <strong>GotFit</strong>
+            <span>Operations center</span>
+          </span>
+        </Link>
+
+        {navigation.map((section) => (
+          <section className="admin-nav-section" key={section.title}>
+            <span>{section.title}</span>
+            <nav className="admin-nav">
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  onClick={closeSidebar}
+                  className={({ isActive }) => (isActive ? "active" : undefined)}
+                >
+                  <Icon name={item.icon} size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          </section>
+        ))}
+
+        <div className="admin-sidebar__footer">
+          <div className="admin-profile">
+            <span className="admin-avatar">{adminUser.name?.slice(0, 2) || "AD"}</span>
+            <span>
+              <strong>{adminUser.name || "Administrateur"}</strong>
+              <span>{adminUser.email || "Console sécurisée"}</span>
+            </span>
           </div>
-        </div>
-
-        <nav className="gotfit-sidebar__nav">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">⌂</span>
-            <span>Dashboard</span>
-          </NavLink>
-
-          <NavLink
-            to="/users"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">👥</span>
-            <span>Utilisateurs</span>
-          </NavLink>
-
-          <NavLink
-            to="/annonces"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">📋</span>
-            <span>Annonces</span>
-          </NavLink>
-
-          <NavLink
-            to="/documents"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">📄</span>
-            <span>Documents</span>
-          </NavLink>
-
-          <NavLink
-            to="/reservations"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">📅</span>
-            <span>Réservations</span>
-          </NavLink>
-
-
-
-          <NavLink
-            to="/paiements"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">💳</span>
-            <span>Paiements</span>
-          </NavLink>
-
-          <NavLink
-            to="/messages"
-            className={({ isActive }) =>
-              isActive ? "gotfit-nav-link active" : "gotfit-nav-link"
-            }
-          >
-            <span className="gotfit-nav-link__icon">💬</span>
-            <span>Messages</span>
-          </NavLink>
-        </nav>
-
-        <div className="gotfit-sidebar__bottom">
-          <div className="gotfit-admin-card">
-            <div className="gotfit-admin-card__avatar">
-              {adminUser?.name?.charAt(0) || "A"}
-            </div>
-
-            <div>
-              <strong>{adminUser?.name || "Administrateur"}</strong>
-              <span>{adminUser?.email || "admin@gmail.com"}</span>
-            </div>
-          </div>
-
-          <button className="gotfit-logout-btn" onClick={handleLogout}>
+          <button type="button" className="admin-logout" onClick={handleLogout}>
+            <Icon name="logout" size={17} />
             Déconnexion
           </button>
         </div>
       </aside>
 
-      <div className="gotfit-main">
-        <header className="gotfit-topbar">
-          <div>
-            <p>Bonjour 👋</p>
-            <h2>Bienvenue sur GotFit Admin</h2>
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <div className="admin-topbar__right">
+            <button
+              type="button"
+              className="ops-icon-button admin-mobile-toggle"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Ouvrir le menu"
+            >
+              <Icon name="menu" />
+            </button>
+            <div className="admin-topbar__title">
+              <span>Administration GotFit</span>
+              <strong>{pageTitle}</strong>
+            </div>
           </div>
 
-          <div className="gotfit-topbar__right">
-            <div className="gotfit-search">
-              <span>⌕</span>
-              <input type="text" placeholder="Rechercher..." />
-            </div>
-
-            <button className="gotfit-notification" type="button">
-              🔔
-              <span></span>
-            </button>
-
-            <div className="gotfit-topbar__avatar">
-              {adminUser?.name?.charAt(0) || "A"}
-            </div>
+          <div className="admin-topbar__right">
+            <span className="admin-system-status">Console sécurisée</span>
+            <span className="admin-avatar">{adminUser.name?.slice(0, 2) || "AD"}</span>
           </div>
         </header>
 
-        <main className="gotfit-content">
+        <main className="admin-content">
           <Outlet />
         </main>
       </div>
