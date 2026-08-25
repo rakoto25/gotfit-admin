@@ -9,6 +9,7 @@ Console d’administration React/Vite connectée à l’API Laravel GotFit.
 - validation des prestations, résolution des litiges, remboursements et reversements Stripe Connect ;
 - contrôle des documents professionnels avec motif de refus ;
 - validation, suspension et gestion des comptes, des rôles et du SIRET ;
+- pagination des utilisateurs et téléchargement des diplômes depuis le dossier coach ;
 - réglage des frais client et de la commission coach ;
 - messagerie individuelle et diffusion groupée aux coachs ;
 - interface responsive dédiée aux opérations administratives.

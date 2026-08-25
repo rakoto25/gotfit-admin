@@ -114,6 +114,13 @@ export const adminApi = {
     return listFrom<CredentialDocument>(data, ["documents"]);
   },
 
+  async userDocuments(userId: number): Promise<CredentialDocument[]> {
+    const { data } = await api.get("/documents", {
+      params: { user_id: userId },
+    });
+    return listFrom<CredentialDocument>(data, ["documents"]);
+  },
+
   async approveDocument(id: number): Promise<CredentialDocument> {
     const { data } = await api.put(`/documents/${id}/valider`);
     return asRecord(data).document as CredentialDocument;
