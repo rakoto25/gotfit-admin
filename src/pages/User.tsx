@@ -17,6 +17,7 @@ type StatusFilter = "all" | AccountStatus;
 type PageToken = number | "ellipsis-start" | "ellipsis-end";
 type UserForm = {
   name: string;
+  display_name: string;
   email: string;
   password: string;
   phone: string;
@@ -32,6 +33,7 @@ type UserForm = {
 
 const emptyForm: UserForm = {
   name: "",
+  display_name: "",
   email: "",
   password: "",
   phone: "",
@@ -86,6 +88,7 @@ const formatDate = (value?: string | null) => {
 
 const formFromUser = (user: AdminUser): UserForm => ({
   name: user.name || "",
+  display_name: user.display_name || user.name || "",
   email: user.email || "",
   password: "",
   phone: user.phone || "",
@@ -197,7 +200,7 @@ export default function User() {
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return users.filter((user) => {
-      const haystack = [user.id, user.name, user.email, user.phone, user.siret, user.coach_speciality].join(" ").toLowerCase();
+      const haystack = [user.id, user.name, user.display_name, user.email, user.phone, user.siret, user.coach_speciality].join(" ").toLowerCase();
       return (
         (!keyword || haystack.includes(keyword)) &&
         (roleFilter === "all" || roleSlug(user) === roleFilter) &&
@@ -289,6 +292,7 @@ export default function User() {
     try {
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
+        display_name: form.display_name.trim() || null,
         email: form.email.trim(),
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
@@ -324,8 +328,18 @@ export default function User() {
     setError("");
     setSuccess("");
     try {
-      applyUpdate(await adminApi.validateUser(user.id, status, reason));
-      setSuccess(status === "approved" ? roleSlug(user) === "intervenant" ? "Compte coach autorisé. Un e-mail de validation est déclenché automatiquement ; son envoi dépend du service de messagerie configuré." : "Compte autorisé." : status === "suspended" ? "Compte suspendu." : "Compte refusé.");
+      const result = await adminApi.validateUser(user.id, status, reason);
+      applyUpdate(result.user);
+      setSuccess(
+        result.message ||
+          (status === "approved"
+            ? roleSlug(user) === "intervenant"
+              ? "Compte coach autorisé. L’email de validation a été déclenché."
+              : "Compte autorisé."
+            : status === "suspended"
+              ? "Compte suspendu."
+              : "Compte refusé.")
+      );
       setRejecting(null);
       setRejectionReason("");
     } catch (caught) {
@@ -453,6 +467,7 @@ export default function User() {
           <div className="ops-detail-grid">
             <div className="ops-detail"><span>Rôle</span><strong>{roleLabel[roleSlug(selected)]}</strong></div>
             <div className="ops-detail"><span>Statut du compte</span><strong>{statusBadge(selected).label}</strong></div>
+            <div className="ops-detail"><span>Pseudo public</span><strong>{selected.display_name || selected.name || "Non renseigné"}</strong></div>
             <div className="ops-detail"><span>E-mail</span><strong>{selected.email || "Non renseigné"}</strong></div>
             <div className="ops-detail"><span>Téléphone</span><strong>{selected.phone || "Non renseigné"}</strong></div>
             <div className="ops-detail ops-detail--wide"><span>Adresse</span><strong>{selected.address || "Non renseignée"}</strong></div>
@@ -460,6 +475,11 @@ export default function User() {
             {selected.bio && <div className="ops-detail ops-detail--wide"><span>Présentation</span><strong>{selected.bio}</strong></div>}
             {selected.rejection_reason && <div className="ops-detail ops-detail--wide"><span>Motif de refus</span><strong>{selected.rejection_reason}</strong></div>}
           </div>
+          {roleSlug(selected) === "intervenant" && normalizeStatus(selected) !== "approved" && (
+            <Notice tone="info">
+              L’autorisation du compte coach déclenche automatiquement un email confirmant qu’il peut accéder à son espace et publier ses annonces.
+            </Notice>
+          )}
           {roleSlug(selected) === "intervenant" && (
             <section className="ops-coach-documents">
               <div className="ops-coach-documents__header">
@@ -502,6 +522,7 @@ export default function User() {
         >
           <div className="ops-form-grid">
             <label className="ops-field"><span>Nom complet *</span><input value={form.name} onChange={(event) => updateForm("name", event.target.value)} placeholder="Nom et prénom"/></label>
+            <label className="ops-field"><span>Pseudo / nom affiché</span><input value={form.display_name} onChange={(event) => updateForm("display_name", event.target.value)} placeholder="Nom visible publiquement"/></label>
             <label className="ops-field"><span>Adresse e-mail *</span><input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} placeholder="nom@exemple.fr"/></label>
             <label className="ops-field"><span>{editing === "new" ? "Mot de passe *" : "Nouveau mot de passe"}</span><input type="password" value={form.password} onChange={(event) => updateForm("password", event.target.value)} placeholder={editing === "new" ? "6 caractères minimum" : "Laisser vide pour conserver"}/></label>
             <label className="ops-field"><span>Téléphone</span><input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} placeholder="+33…"/></label>

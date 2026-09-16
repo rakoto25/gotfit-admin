@@ -10,6 +10,7 @@ export type Role = {
 export type AdminUser = {
   id: number;
   name?: string;
+  display_name?: string | null;
   email?: string;
   phone?: string;
   address?: string;

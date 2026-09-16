@@ -1,7 +1,5 @@
-# Corrections du retour client GotFit — 16 septembre 2026
+# Corrections retour client - GotFit Admin
 
-L'administration confirme désormais qu'approuver un compte coach déclenche son e-mail de validation. L'expédition est réalisée par l'API corrigée, également lorsque le statut est modifié depuis la fiche utilisateur ; répéter une approbation sans changement de statut ne renvoie pas l'e-mail.
-
-Déployer l'API corrigée et vérifier sa configuration SMTP et sa file de traitement. Installer ce projet avec `npm ci`, compiler avec `npm run build`, puis déployer `dist` selon la procédure habituelle en conservant la configuration d'URL API du serveur.
-
-Validation : compilation TypeScript/Vite et ESLint réussis. Le déclenchement de notification et l'absence de doublon sont testés côté API avec une notification simulée. Aucun e-mail réel n'a été envoyé pendant la vérification.
+- La validation d’un coach affiche le message renvoyé par l’API et indique l’envoi automatique de l’email de validation.
+- Ajout du pseudo / nom public dans la gestion des utilisateurs.
+- Le dossier coach rappelle qu’une autorisation déclenche l’email permettant au coach de publier ses annonces.

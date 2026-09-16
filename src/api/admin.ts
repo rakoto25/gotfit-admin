@@ -73,12 +73,21 @@ export const adminApi = {
     return asRecord(data).user as AdminUser;
   },
 
-  async validateUser(id: number, status: string, rejectionReason?: string): Promise<AdminUser> {
+  async validateUser(
+    id: number,
+    status: string,
+    rejectionReason?: string
+  ): Promise<{ user: AdminUser; message?: string; notificationSent?: boolean }> {
     const { data } = await api.put(`/users/${id}/validate`, {
       status,
       rejection_reason: rejectionReason || null,
     });
-    return asRecord(data).user as AdminUser;
+    const payload = asRecord(data);
+    return {
+      user: payload.user as AdminUser,
+      message: typeof payload.message === "string" ? payload.message : undefined,
+      notificationSent: Boolean(payload.notification_sent),
+    };
   },
 
   async verifySiret(id: number, verified: boolean): Promise<AdminUser> {
