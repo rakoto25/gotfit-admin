@@ -325,7 +325,7 @@ export default function User() {
     setSuccess("");
     try {
       applyUpdate(await adminApi.validateUser(user.id, status, reason));
-      setSuccess(status === "approved" ? "Compte autorisé." : status === "suspended" ? "Compte suspendu." : "Compte refusé.");
+      setSuccess(status === "approved" ? roleSlug(user) === "intervenant" ? "Compte coach autorisé. Un e-mail de validation est déclenché automatiquement ; son envoi dépend du service de messagerie configuré." : "Compte autorisé." : status === "suspended" ? "Compte suspendu." : "Compte refusé.");
       setRejecting(null);
       setRejectionReason("");
     } catch (caught) {
