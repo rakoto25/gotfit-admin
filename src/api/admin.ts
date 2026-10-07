@@ -11,6 +11,7 @@ import type {
   Pack,
   PackSession,
   Reservation,
+  LegalDocument,
 } from "../types/admin";
 
 type ApiRecord = Record<string, unknown>;
@@ -207,6 +208,16 @@ export const adminApi = {
   async updateBusinessSettings(settings: Record<string, number>): Promise<BusinessSetting[]> {
     const { data } = await api.put("/admin/business-settings", { settings });
     return listFrom<BusinessSetting>(data, ["settings"]);
+  },
+
+  async legalDocuments(): Promise<LegalDocument[]> {
+    const { data } = await api.get("/admin/legal-documents");
+    return listFrom<LegalDocument>(data, ["documents"]);
+  },
+
+  async updateLegalDocument(id: number, payload: Omit<LegalDocument, "id" | "slug" | "updated_at">): Promise<LegalDocument> {
+    const { data } = await api.put(`/admin/legal-documents/${id}`, payload);
+    return asRecord(data).document as LegalDocument;
   },
 
   async validatePrestation(id: number): Promise<Reservation> {

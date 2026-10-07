@@ -221,3 +221,15 @@ export type BusinessSetting = {
   value: string | number;
   description?: string | null;
 };
+
+export type LegalDocument = {
+  id: number;
+  slug: "client-achat" | "intervenants" | string;
+  audience: "client" | "intervenant";
+  title: string;
+  content: string;
+  version: string;
+  effective_at?: string | null;
+  is_published: boolean;
+  updated_at?: string | null;
+};

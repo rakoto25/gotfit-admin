@@ -22,6 +22,7 @@ const navigation: Array<{ title: string; items: NavigationItem[] }> = [
       { to: "/users", label: "Utilisateurs", icon: "users" },
       { to: "/annonces", label: "Modération annonces", icon: "announcement" },
       { to: "/documents", label: "Conformité coachs", icon: "document" },
+      { to: "/cgv", label: "CGV", icon: "shield" },
     ],
   },
   {
@@ -44,6 +45,7 @@ const pageTitles: Record<string, string> = {
   "/paiements": "Opérations financières",
   "/packs": "Packs & séances",
   "/messages": "Communications",
+  "/cgv": "Conditions générales de vente",
 };
 
 const readAdmin = (): StoredAdmin => {

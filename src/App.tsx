@@ -10,6 +10,7 @@ import Reservation from "./pages/Reservation";
 import Message from "./pages/Message";
 import Payment from "./pages/Payment";
 import Pack from "./pages/Pack";
+import Legal from "./pages/Legal";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="messages" element={<Message />} />
             <Route path="paiements" element={<Payment />} />
             <Route path="packs" element={<Pack />} />
+            <Route path="cgv" element={<Legal />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
