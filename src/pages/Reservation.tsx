@@ -44,6 +44,32 @@ const prestationBadge = (item: ReservationRecord) => {
   return { label: item.status === "realise" ? "Séance réalisée" : "En cours", tone: "neutral" as const };
 };
 
+const isPaid = (item: ReservationRecord) => Boolean(item.is_paid) && item.payment_status === "paid";
+
+const sessionHasPassed = (item: ReservationRecord) => {
+  if (item.status === "realise") return true;
+  if (!item.reservation_date || !item.reservation_time) return false;
+  const day = item.reservation_date.slice(0, 10);
+  const scheduled = new Date(`${day}T${item.reservation_time}`);
+  return !Number.isNaN(scheduled.getTime()) && scheduled.getTime() <= Date.now();
+};
+
+const canValidate = (item: ReservationRecord) =>
+  isPaid(item) &&
+  !["validated", "transferred", "disputed", "refunded", "cancelled"].includes(String(item.prestation_status)) &&
+  !["blocked", "refunded", "cancelled", "reversed"].includes(String(item.payout_status)) &&
+  sessionHasPassed(item);
+
+const canTransfer = (item: ReservationRecord) =>
+  isPaid(item) &&
+  item.prestation_status === "validated" &&
+  !item.stripe_transfer_id &&
+  !["blocked", "refunded", "cancelled", "reversed", "transferred"].includes(String(item.payout_status)) &&
+  Boolean(item.intervenant?.stripe_account_id && item.intervenant?.stripe_onboarding_completed);
+
+const canRefund = (item: ReservationRecord) =>
+  isPaid(item) && Boolean(item.payment_intent_id);
+
 export default function Reservation() {
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const [selected, setSelected] = useState<ReservationRecord | null>(null);
@@ -79,7 +105,7 @@ export default function Reservation() {
       total: reservations.length,
       paid: reservations.filter((item) => item.is_paid || item.payment_status === "paid").length,
       disputes: reservations.filter((item) => item.prestation_status === "disputed").length,
-      payouts: reservations.filter((item) => item.prestation_status === "validated" && !item.stripe_transfer_id).length,
+      payouts: reservations.filter(canTransfer).length,
     }),
     [reservations]
   );
@@ -113,6 +139,7 @@ export default function Reservation() {
   };
 
   const validatePrestation = async (item: ReservationRecord) => {
+    if (!canValidate(item)) return;
     setActionId(item.id);
     setError("");
     try {
@@ -126,6 +153,7 @@ export default function Reservation() {
   };
 
   const transfer = async (item: ReservationRecord) => {
+    if (!canTransfer(item)) return;
     if (!window.confirm("Confirmer le reversement Stripe au coach ? Cette opération financière est réelle.")) return;
     setActionId(item.id);
     setError("");
@@ -140,7 +168,7 @@ export default function Reservation() {
   };
 
   const submitRefund = async () => {
-    if (!selected) return;
+    if (!selected || !canRefund(selected)) return;
     setActionId(selected.id);
     setError("");
     try {
@@ -257,16 +285,16 @@ export default function Reservation() {
           onClose={() => setSelected(null)}
           footer={
             <>
-              {(selected.is_paid || selected.payment_status === "paid") && selected.payment_status !== "refunded" && (
+              {canRefund(selected) && (
                 <button type="button" className="ops-button ops-button--danger" onClick={() => openOperation(selected, "refund")}>Rembourser</button>
               )}
               {selected.prestation_status === "disputed" && (
                 <button type="button" className="ops-button ops-button--secondary" onClick={() => openOperation(selected, "dispute")}>Résoudre le litige</button>
               )}
-              {selected.prestation_status !== "validated" && selected.prestation_status !== "transferred" && selected.prestation_status !== "refunded" && (
+              {canValidate(selected) && (
                 <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => validatePrestation(selected)}>Valider la prestation</button>
               )}
-              {selected.prestation_status === "validated" && !selected.stripe_transfer_id && (
+              {canTransfer(selected) && (
                 <button type="button" className="ops-button ops-button--primary" disabled={actionId === selected.id} onClick={() => transfer(selected)}><Icon name="payment" size={15}/> Reverser au coach</button>
               )}
             </>

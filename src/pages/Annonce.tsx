@@ -14,6 +14,13 @@ import type { Announcement, AnnouncementStatus } from "../types/admin";
 
 type StatusFilter = "all" | AnnouncementStatus;
 type TypeFilter = "all" | "coach_service" | "client_request";
+type AnnouncementForm = {
+  titre: string;
+  contenu: string;
+  category: string;
+  price: string;
+  duration: string;
+};
 
 const titleOf = (item: Announcement) => item.titre || item.title || "Annonce sans titre";
 const descriptionOf = (item: Announcement) => item.contenu || item.description || "Aucune description.";
@@ -51,6 +58,9 @@ const imageUrl = (item: Announcement) => {
 export default function Annonce() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [selected, setSelected] = useState<Announcement | null>(null);
+  const [editing, setEditing] = useState<Announcement | null>(null);
+  const [form, setForm] = useState<AnnouncementForm>({ titre: "", contenu: "", category: "", price: "", duration: "" });
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -78,7 +88,7 @@ export default function Annonce() {
   const counts = useMemo(
     () => ({
       total: announcements.length,
-      pending: announcements.filter((item) => ["en_attente", "brouillon"].includes(String(item.status))).length,
+      pending: announcements.filter((item) => item.status === "en_attente").length,
       clients: announcements.filter((item) => item.announcement_type === "client_request").length,
       published: announcements.filter((item) => item.status === "valide").length,
     }),
@@ -113,6 +123,7 @@ export default function Annonce() {
   };
 
   const runAction = async (item: Announcement, action: "approve" | "reject") => {
+    if (item.status !== "en_attente") return;
     setActionId(item.id);
     setError("");
     setSuccess("");
@@ -121,11 +132,50 @@ export default function Annonce() {
         ? await adminApi.approveAnnouncement(item.id)
         : await adminApi.rejectAnnouncement(item.id);
       replaceAnnouncement(updated);
-      setSuccess(action === "approve" ? "Annonce publiée sur la marketplace." : "Annonce refusée.");
+      setSuccess(action === "approve" ? "Annonce validée avec succès." : "Annonce refusée avec succès.");
     } catch (caught) {
       setError(getApiError(caught, "La décision n’a pas pu être enregistrée."));
     } finally {
       setActionId(null);
+    }
+  };
+
+  const openEdit = (item: Announcement) => {
+    setSelected(null);
+    setEditing(item);
+    setForm({
+      titre: titleOf(item),
+      contenu: item.contenu || item.description || "",
+      category: item.category || "",
+      price: item.price === null || item.price === undefined ? "" : String(item.price),
+      duration: item.duration === null || item.duration === undefined ? "" : String(item.duration),
+    });
+  };
+
+  const saveAnnouncement = async () => {
+    if (!editing || !form.titre.trim() || !form.contenu.trim()) {
+      setError("Le titre et la description sont obligatoires.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload: Record<string, unknown> = {
+        titre: form.titre.trim(),
+        contenu: form.contenu.trim(),
+        category: form.category.trim() || null,
+      };
+      if (form.price.trim()) payload.price = Number(form.price);
+      if (form.duration.trim()) payload.duration = Number(form.duration);
+      const updated = await adminApi.updateAnnouncement(editing.id, payload);
+      replaceAnnouncement(updated);
+      setEditing(null);
+      setSuccess("Annonce modifiée avec succès.");
+    } catch (caught) {
+      setError(getApiError(caught, "Impossible de modifier l’annonce."));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -218,8 +268,9 @@ export default function Annonce() {
                       <td>
                         <div className="ops-row-actions">
                           <button type="button" className="ops-row-action" onClick={() => setSelected(item)}><Icon name="eye" size={13}/> Examiner</button>
-                          {item.status !== "valide" && <button type="button" className="ops-row-action success" disabled={actionId === item.id} onClick={() => runAction(item, "approve")}><Icon name="check" size={13}/> Publier</button>}
-                          {item.status !== "refuse" && <button type="button" className="ops-row-action danger" disabled={actionId === item.id} onClick={() => runAction(item, "reject")}><Icon name="reject" size={13}/> Refuser</button>}
+                          <button type="button" className="ops-row-action primary" onClick={() => openEdit(item)}><Icon name="settings" size={13}/> Modifier</button>
+                          {item.status === "en_attente" && <button type="button" className="ops-row-action success" disabled={actionId === item.id} onClick={() => runAction(item, "approve")}><Icon name="check" size={13}/> Valider</button>}
+                          {item.status === "en_attente" && <button type="button" className="ops-row-action danger" disabled={actionId === item.id} onClick={() => runAction(item, "reject")}><Icon name="reject" size={13}/> Refuser</button>}
                         </div>
                       </td>
                     </tr>
@@ -240,9 +291,10 @@ export default function Annonce() {
           onClose={() => setSelected(null)}
           footer={
             <>
-              <button type="button" className="ops-button ops-button--danger" onClick={() => deleteAnnouncement(selected)}><Icon name="trash" size={15}/> Supprimer</button>
-              {selected.status !== "refuse" && <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => runAction(selected, "reject")}>Refuser</button>}
-              {selected.status !== "valide" && <button type="button" className="ops-button ops-button--primary" disabled={actionId === selected.id} onClick={() => runAction(selected, "approve")}><Icon name="check" size={15}/> Publier</button>}
+              <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => deleteAnnouncement(selected)}><Icon name="trash" size={15}/> Supprimer</button>
+              <button type="button" className="ops-button ops-button--secondary" onClick={() => openEdit(selected)}><Icon name="settings" size={15}/> Modifier</button>
+              {selected.status === "en_attente" && <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => runAction(selected, "reject")}>Refuser</button>}
+              {selected.status === "en_attente" && <button type="button" className="ops-button ops-button--primary" disabled={actionId === selected.id} onClick={() => runAction(selected, "approve")}><Icon name="check" size={15}/> Valider</button>}
             </>
           }
         >
@@ -255,6 +307,24 @@ export default function Annonce() {
             <div className="ops-detail"><span>Format</span><strong>{selected.is_online ? "En ligne" : locationOf(selected)}</strong></div>
             <div className="ops-detail"><span>Durée</span><strong>{selected.duration ? selected.duration + " min" : "Non précisée"}</strong></div>
             <div className="ops-detail ops-detail--wide"><span>Description</span><strong>{descriptionOf(selected)}</strong></div>
+          </div>
+        </Modal>
+      )}
+
+      {editing && (
+        <Modal
+          eyebrow={`Annonce ANN-${String(editing.id).padStart(5, "0")}`}
+          title="Modifier l’annonce"
+          onClose={() => setEditing(null)}
+          footer={<><button type="button" className="ops-button ops-button--secondary" onClick={() => setEditing(null)}>Annuler</button><button type="button" className="ops-button ops-button--primary" disabled={saving || !form.titre.trim() || !form.contenu.trim()} onClick={saveAnnouncement}>{saving ? "Enregistrement…" : "Enregistrer"}</button></>}
+        >
+          <Notice tone="info">Le statut actuel sera conservé lors d’une correction effectuée par l’administration.</Notice>
+          <div className="ops-form-grid" style={{ marginTop: 14 }}>
+            <label className="ops-field ops-detail--wide"><span>Titre</span><input value={form.titre} onChange={(event) => setForm((current) => ({ ...current, titre: event.target.value }))} maxLength={255}/></label>
+            <label className="ops-field ops-detail--wide"><span>Description</span><textarea value={form.contenu} onChange={(event) => setForm((current) => ({ ...current, contenu: event.target.value }))}/></label>
+            <label className="ops-field"><span>Catégorie</span><input value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} maxLength={100}/></label>
+            <label className="ops-field"><span>Prix (€)</span><input type="number" min="0" step="0.01" value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))}/></label>
+            <label className="ops-field"><span>Durée (minutes)</span><input type="number" min="15" max="480" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: event.target.value }))}/></label>
           </div>
         </Modal>
       )}

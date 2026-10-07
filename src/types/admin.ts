@@ -44,6 +44,9 @@ export type Announcement = {
   type_prestation?: string | null;
   price?: number | string | null;
   duration?: number | null;
+  max_participants?: number | null;
+  available_days?: string[] | null;
+  available_hours?: string[] | null;
   is_online?: boolean;
   city?: string | null;
   location?: string | null;

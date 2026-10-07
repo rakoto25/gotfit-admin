@@ -30,7 +30,7 @@ export function StatusBadge({ children, tone = "neutral" }: { children: ReactNod
 }
 
 export function Notice({ tone, children }: { tone: "error" | "success" | "info"; children: ReactNode }) {
-  return <div className={`ops-notice ops-notice--${tone}`}>{children}</div>;
+  return <div className={`ops-notice ops-notice--${tone}`} role={tone === "error" ? "alert" : "status"} aria-live="polite">{children}</div>;
 }
 
 export function LoadingState({ label = "Chargement des données…" }: { label?: string }) {

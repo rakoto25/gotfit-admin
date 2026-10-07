@@ -61,6 +61,34 @@ const paymentSource = (payment: PaymentRecord) => payment.pack_id
   ? `PACK-${String(payment.pack_id).padStart(5, "0")}`
   : `RES-${String(reservationId(payment) || "—").padStart(5, "0")}`;
 
+const reservationIsPaid = (reservation: Reservation) =>
+  Boolean(reservation.is_paid) && reservation.payment_status === "paid";
+
+const reservationSessionHasPassed = (reservation: Reservation) => {
+  if (reservation.status === "realise") return true;
+  if (!reservation.reservation_date || !reservation.reservation_time) return false;
+  const scheduled = new Date(`${reservation.reservation_date.slice(0, 10)}T${reservation.reservation_time}`);
+  return !Number.isNaN(scheduled.getTime()) && scheduled.getTime() <= Date.now();
+};
+
+const canValidateReservation = (reservation?: Reservation) => Boolean(
+  reservation && reservationIsPaid(reservation) &&
+  !["validated", "transferred", "disputed", "refunded", "cancelled"].includes(String(reservation.prestation_status)) &&
+  !["blocked", "refunded", "cancelled", "reversed"].includes(String(reservation.payout_status)) &&
+  reservationSessionHasPassed(reservation)
+);
+
+const canTransferReservation = (reservation?: Reservation) => Boolean(
+  reservation && reservationIsPaid(reservation) &&
+  reservation.prestation_status === "validated" && !reservation.stripe_transfer_id &&
+  !["blocked", "refunded", "cancelled", "reversed", "transferred"].includes(String(reservation.payout_status)) &&
+  reservation.intervenant?.stripe_account_id && reservation.intervenant?.stripe_onboarding_completed
+);
+
+const canRefundReservation = (reservation?: Reservation) => Boolean(
+  reservation && reservationIsPaid(reservation) && reservation.payment_intent_id
+);
+
 export default function Payment() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -115,7 +143,7 @@ export default function Payment() {
   const getReservation = useCallback((payment: PaymentRecord | null) => {
     if (!payment) return undefined;
     const id = reservationId(payment);
-    return payment.reservation || (id ? reservationMap.get(id) : undefined);
+    return (id ? reservationMap.get(id) : undefined) || payment.reservation;
   }, [reservationMap]);
 
   const waitingPayouts = useMemo(
@@ -125,7 +153,7 @@ export default function Payment() {
         return (
           normalizedStatus(payment) === "paid" &&
           !payment.stripe_transfer_id &&
-          reservation?.prestation_status === "validated"
+          canTransferReservation(reservation)
         );
       }).length,
     [getReservation, payments]
@@ -169,6 +197,7 @@ export default function Payment() {
   };
 
   const validatePrestation = async (reservation: Reservation) => {
+    if (!canValidateReservation(reservation)) return;
     setActionId(reservation.id);
     setError("");
     setSuccess("");
@@ -183,6 +212,7 @@ export default function Payment() {
   };
 
   const transfer = async (reservation: Reservation) => {
+    if (!canTransferReservation(reservation)) return;
     if (!window.confirm("Confirmer ce reversement Stripe au coach ? Cette opération financière est réelle.")) return;
     setActionId(reservation.id);
     setError("");
@@ -200,7 +230,7 @@ export default function Payment() {
 
   const submitRefund = async () => {
     const reservation = getReservation(selected);
-    if (!reservation) return;
+    if (!reservation || !canRefundReservation(reservation)) return;
     setActionId(reservation.id);
     setError("");
     setSuccess("");
@@ -321,13 +351,13 @@ export default function Payment() {
           onClose={() => setSelected(null)}
           footer={
             <>
-              {selectedReservation && normalizedStatus(selected) !== "refunded" && normalizedStatus(selected) !== "failed" && (
+              {canRefundReservation(selectedReservation) && (
                 <button type="button" className="ops-button ops-button--danger" onClick={() => setRefundOpen(true)}>Rembourser</button>
               )}
-              {selectedReservation && !["validated", "transferred", "refunded"].includes(String(selectedReservation.prestation_status)) && (
+              {selectedReservation && canValidateReservation(selectedReservation) && (
                 <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selectedReservation.id} onClick={() => validatePrestation(selectedReservation)}>Valider la prestation</button>
               )}
-              {selectedReservation?.prestation_status === "validated" && !selectedReservation.stripe_transfer_id && (
+              {selectedReservation && canTransferReservation(selectedReservation) && (
                 <button type="button" className="ops-button ops-button--primary" disabled={actionId === selectedReservation.id} onClick={() => transfer(selectedReservation)}><Icon name="wallet" size={15}/> Reverser au coach</button>
               )}
             </>

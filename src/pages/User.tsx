@@ -324,6 +324,7 @@ export default function User() {
   };
 
   const changeStatus = async (user: AdminUser, status: AccountStatus, reason?: string) => {
+    if (normalizeStatus(user) === status) return;
     setActionId(user.id);
     setError("");
     setSuccess("");
@@ -423,7 +424,7 @@ export default function User() {
                         <td><div className="ops-stack"><strong>{formatDate(user.last_login_at)}</strong><span>Inscrit le {formatDate(user.created_at)}</span></div></td>
                         <td><div className="ops-row-actions">
                           <button type="button" className="ops-row-action" onClick={() => openDossier(user)}><Icon name="eye" size={13}/> Dossier</button>
-                          {normalizeStatus(user) !== "approved" && <button type="button" className="ops-row-action success" disabled={actionId === user.id} onClick={() => changeStatus(user, "approved")}><Icon name="check" size={13}/> Autoriser</button>}
+                          {normalizeStatus(user) === "pending" && <button type="button" className="ops-row-action success" disabled={actionId === user.id} onClick={() => changeStatus(user, "approved")}><Icon name="check" size={13}/> Autoriser</button>}
                           {normalizeStatus(user) === "pending" && <button type="button" className="ops-row-action danger" onClick={() => { setRejecting(user); setRejectionReason(""); }}><Icon name="reject" size={13}/> Refuser</button>}
                         </div></td>
                       </tr>
@@ -458,7 +459,10 @@ export default function User() {
           footer={
             <>
               <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => removeUser(selected)}><Icon name="trash" size={14}/> Supprimer</button>
-              {normalizeStatus(selected) === "approved" ? <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "suspended")}>Suspendre</button> : <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "approved")}>Autoriser</button>}
+              {normalizeStatus(selected) === "approved" && <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "suspended")}>Suspendre</button>}
+              {normalizeStatus(selected) === "pending" && <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "approved")}>Autoriser</button>}
+              {normalizeStatus(selected) === "pending" && <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => { setRejecting(selected); setRejectionReason(""); }}>Refuser</button>}
+              {["rejected", "suspended"].includes(normalizeStatus(selected)) && <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => changeStatus(selected, "approved")}>Réactiver</button>}
               {roleSlug(selected) === "intervenant" && selected.siret && <button type="button" className="ops-button ops-button--secondary" disabled={actionId === selected.id} onClick={() => toggleSiret(selected)}>{selected.siret_verified_at ? "Retirer la vérification SIRET" : "Vérifier le SIRET"}</button>}
               <button type="button" className="ops-button ops-button--primary" onClick={() => openEdit(selected)}><Icon name="settings" size={14}/> Modifier</button>
             </>

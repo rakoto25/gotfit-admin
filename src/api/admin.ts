@@ -168,6 +168,11 @@ export const adminApi = {
     };
   },
 
+  async updateAnnouncement(id: number, payload: ApiRecord): Promise<Announcement> {
+    const { data } = await api.put(`/annonces/${id}`, payload);
+    return asRecord(data).annonce as Announcement;
+  },
+
   async packs(): Promise<Pack[]> {
     const { payments } = await this.payments();
     const packIds = [...new Set(

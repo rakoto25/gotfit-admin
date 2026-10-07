@@ -116,6 +116,7 @@ export default function Document() {
   };
 
   const approve = async (item: CredentialDocument) => {
+    if (normalizeStatus(item.status) !== "en_attente") return;
     setActionId(item.id);
     setError("");
     setSuccess("");
@@ -242,7 +243,7 @@ export default function Document() {
               <button type="button" className="ops-button ops-button--danger" disabled={actionId === selected.id} onClick={() => remove(selected)}><Icon name="trash" size={14}/> Supprimer</button>
               <button type="button" className="ops-button ops-button--secondary" onClick={() => openFile(selected)}><Icon name="eye" size={14}/> Ouvrir le fichier</button>
               {normalizeStatus(selected.status) === "en_attente" && <button type="button" className="ops-button ops-button--danger" onClick={() => { setRejecting(selected); setRejectionReason(""); }}>Refuser</button>}
-              {normalizeStatus(selected.status) !== "valide" && <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => approve(selected)}>Valider</button>}
+              {normalizeStatus(selected.status) === "en_attente" && <button type="button" className="ops-button ops-button--success" disabled={actionId === selected.id} onClick={() => approve(selected)}>Valider</button>}
             </>
           }
         >

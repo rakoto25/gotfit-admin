@@ -15,6 +15,8 @@ Console d’administration React/Vite connectée à l’API Laravel GotFit.
 - réglage des frais client et de la commission coach ;
 - messagerie individuelle et diffusion groupée aux coachs ;
 - interface responsive dédiée aux opérations administratives.
+- actions contextuelles protégées selon le statut : aucune double validation, aucun double reversement et confirmations visibles après chaque décision ;
+- modification administrative des annonces sans dépublication automatique d’un contenu déjà validé.
 
 ## Configuration
 
