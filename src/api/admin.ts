@@ -8,6 +8,8 @@ import type {
   DashboardStats,
   Payment,
   PaymentSummary,
+  Pack,
+  PackSession,
   Reservation,
 } from "../types/admin";
 
@@ -164,6 +166,32 @@ export const adminApi = {
         totalIntervenant: asNumber(record.totalIntervenant),
       },
     };
+  },
+
+  async packs(): Promise<Pack[]> {
+    const { payments } = await this.payments();
+    const packIds = [...new Set(
+      payments
+        .map((payment) => Number(payment.pack_id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )];
+
+    const results = await Promise.allSettled(
+      packIds.map(async (id) => {
+        const { data } = await api.get(`/packs/${id}`);
+        return asRecord(data).pack as Pack;
+      })
+    );
+
+    return results
+      .filter((result): result is PromiseFulfilledResult<Pack> => result.status === "fulfilled")
+      .map((result) => result.value)
+      .sort((left, right) => right.id - left.id);
+  },
+
+  async resolvePackSession(id: number, decision: "validate" | "cancel"): Promise<PackSession> {
+    const { data } = await api.post(`/admin/pack-sessions/${id}/resolve`, { decision });
+    return asRecord(data).session as PackSession;
   },
 
   async businessSettings(): Promise<BusinessSetting[]> {

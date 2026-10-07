@@ -57,6 +57,8 @@ export type Announcement = {
 export type Payment = {
   id: number;
   reservation_id?: number;
+  offer_id?: number | null;
+  pack_id?: number | null;
   amount?: number | string;
   service_fee?: number | string;
   commission?: number | string;
@@ -72,6 +74,70 @@ export type Payment = {
   client?: AdminUser;
   intervenant?: AdminUser;
   reservation?: Reservation;
+};
+
+export type PackSessionCancellation = {
+  id: number;
+  actor_role?: string;
+  kind?: string;
+  is_late?: boolean;
+  consumes_session?: boolean;
+  reason?: string | null;
+  created_at?: string;
+};
+
+export type PackSession = {
+  id: number;
+  pack_id: number;
+  sequence: number;
+  amount_due: number;
+  status: string;
+  payout_status?: string;
+  scheduled_at?: string | null;
+  completed_at?: string | null;
+  validation_deadline?: string | null;
+  validated_at?: string | null;
+  disputed_at?: string | null;
+  dispute_reason?: string | null;
+  stripe_transfer_id?: string | null;
+  transferred_at?: string | null;
+  payout_error?: string | null;
+  cancellations?: PackSessionCancellation[];
+};
+
+export type PackOffer = {
+  id: number;
+  title?: string;
+  description?: string | null;
+  status?: string;
+  valid_until?: string | null;
+};
+
+export type Pack = {
+  id: number;
+  offer_id?: number;
+  client_id: number;
+  coach_id: number;
+  stripe_payment_intent_id?: string | null;
+  stripe_charge_id?: string | null;
+  amount_total: number;
+  wallet_amount_used?: number;
+  stripe_amount_paid?: number;
+  refunded_amount?: number;
+  commission_rate: number | string;
+  commission_amount: number;
+  coach_net_amount: number;
+  amount_transferred: number;
+  session_count: number;
+  completed_sessions: number;
+  currency?: string;
+  status: string;
+  paid_at?: string | null;
+  created_at?: string;
+  client?: AdminUser;
+  coach?: AdminUser;
+  offer?: PackOffer;
+  sessions?: PackSession[];
 };
 
 export type Reservation = {

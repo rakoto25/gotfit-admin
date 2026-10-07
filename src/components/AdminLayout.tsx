@@ -29,6 +29,7 @@ const navigation: Array<{ title: string; items: NavigationItem[] }> = [
     items: [
       { to: "/reservations", label: "Réservations", icon: "calendar" },
       { to: "/paiements", label: "Paiements & reversements", icon: "payment" },
+      { to: "/packs", label: "Packs & séances", icon: "wallet" },
       { to: "/messages", label: "Communications", icon: "message" },
     ],
   },
@@ -41,6 +42,7 @@ const pageTitles: Record<string, string> = {
   "/documents": "Documents professionnels",
   "/reservations": "Supervision des réservations",
   "/paiements": "Opérations financières",
+  "/packs": "Packs & séances",
   "/messages": "Communications",
 };
 

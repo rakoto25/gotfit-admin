@@ -9,6 +9,7 @@ import Document from "./pages/Document";
 import Reservation from "./pages/Reservation";
 import Message from "./pages/Message";
 import Payment from "./pages/Payment";
+import Pack from "./pages/Pack";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="reservations" element={<Reservation />} />
             <Route path="messages" element={<Message />} />
             <Route path="paiements" element={<Payment />} />
+            <Route path="packs" element={<Pack />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

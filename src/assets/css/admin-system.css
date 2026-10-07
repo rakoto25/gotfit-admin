@@ -1006,6 +1006,78 @@
   font-weight: 900;
 }
 
+.pack-session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pack-session {
+  padding: 14px;
+  border: 1px solid #e2e8e3;
+  border-radius: 14px;
+  background: #f9fbf9;
+}
+
+.pack-session__heading,
+.pack-session__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pack-session__heading strong,
+.pack-session__heading span,
+.pack-session__meta span,
+.pack-session__meta strong,
+.pack-session__dispute strong,
+.pack-session__dispute span {
+  display: block;
+}
+
+.pack-session__heading > div > strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pack-session__heading > div > span,
+.pack-session__meta span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.pack-session__meta {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid #e6ebe7;
+}
+
+.pack-session__meta strong {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.pack-session__dispute {
+  margin-top: 11px;
+  padding: 11px;
+  border-radius: 10px;
+  color: #8f2f21;
+  background: #fff1ed;
+  font-size: 10px;
+}
+
+.pack-session__dispute span {
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.pack-session .ops-row-actions {
+  margin-top: 12px;
+}
+
 .ops-finance-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

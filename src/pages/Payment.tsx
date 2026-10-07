@@ -57,6 +57,10 @@ const paymentBadge = (payment: PaymentRecord) => {
 
 const reservationId = (payment: PaymentRecord) => payment.reservation?.id || payment.reservation_id;
 
+const paymentSource = (payment: PaymentRecord) => payment.pack_id
+  ? `PACK-${String(payment.pack_id).padStart(5, "0")}`
+  : `RES-${String(reservationId(payment) || "—").padStart(5, "0")}`;
+
 export default function Payment() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -134,6 +138,7 @@ export default function Payment() {
       const haystack = [
         payment.id,
         reservationId(payment),
+        payment.pack_id,
         payment.client?.name,
         payment.client?.email,
         payment.intervenant?.name,
@@ -292,7 +297,7 @@ export default function Payment() {
                   const reservation = getReservation(payment);
                   return (
                     <tr key={payment.id}>
-                      <td><div className="ops-stack"><strong>PAY-{String(payment.id).padStart(5, "0")}</strong><span>RES-{String(reservationId(payment) || "—").padStart(5, "0")} · {formatDate(payment.created_at)}</span></div></td>
+                      <td><div className="ops-stack"><strong>PAY-{String(payment.id).padStart(5, "0")}</strong><span>{paymentSource(payment)} · {formatDate(payment.created_at)}</span></div></td>
                       <td><div className="ops-stack"><strong>{payment.client?.name || reservation?.client?.name || "Client"}</strong><span>{payment.client?.email || reservation?.client?.email}</span></div></td>
                       <td><div className="ops-stack"><strong>{payment.intervenant?.name || reservation?.intervenant?.name || "Coach"}</strong><span>{reservation?.intervenant?.stripe_onboarding_completed ? "Compte Stripe prêt" : "Stripe à contrôler"}</span></div></td>
                       <td><StatusBadge tone={badge.tone}>{badge.label}</StatusBadge></td>
@@ -334,7 +339,7 @@ export default function Payment() {
             <div className="ops-detail"><span>Identifiant Stripe</span><strong>{selected.payment_intent_id || selectedReservation?.payment_intent_id || "Non disponible"}</strong></div>
             <div className="ops-detail"><span>Reversement Stripe</span><strong>{selected.stripe_transfer_id || selectedReservation?.stripe_transfer_id || "Non effectué"}</strong></div>
             <div className="ops-detail"><span>Statut paiement</span><strong>{selected.status || selectedReservation?.payment_status || "pending"}</strong></div>
-            <div className="ops-detail"><span>Statut prestation</span><strong>{selectedReservation?.prestation_status || "Non rattachée"}</strong></div>
+            <div className="ops-detail"><span>{selected.pack_id ? "Pack associé" : "Statut prestation"}</span><strong>{selected.pack_id ? paymentSource(selected) : selectedReservation?.prestation_status || "Non rattachée"}</strong></div>
           </div>
           <div className="ops-finance-strip">
             <div><span>Payé par le client</span><strong>{currency(selected.amount || selectedReservation?.total_client_amount, selected.currency)}</strong></div>

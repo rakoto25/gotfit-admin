@@ -7,6 +7,8 @@ Console d’administration React/Vite connectée à l’API Laravel GotFit.
 - tableau de bord alimenté par les indicateurs réels de Laravel ;
 - validation, refus et suppression des annonces coachs et demandes clients ;
 - validation des prestations, résolution des litiges, remboursements et reversements Stripe Connect ;
+- supervision des packs payés, de leur commission, du cashback utilisé et des reversements séance par séance ;
+- résolution des séances de pack contestées, avec protection contre les doubles actions côté interface ;
 - contrôle des documents professionnels avec motif de refus ;
 - validation, suspension et gestion des comptes, des rôles et du SIRET ;
 - pagination des utilisateurs et téléchargement des diplômes depuis le dossier coach ;
@@ -44,6 +46,7 @@ La console repose sur les routes admin déjà présentes dans le dépôt `gotfit
 - `/documents`, `/documents/{id}/valider` et `/documents/{id}/refuser` ;
 - `/reservation/all`, `/validate-prestation`, `/transfer-to-coach`, `/refund` et `/resolve-dispute` ;
 - `/admin/payments` et `/admin/business-settings` ;
+- `/packs/{id}` et `/admin/pack-sessions/{id}/resolve` ;
 - `/admin/messages` et `/admin/messages/broadcast-coaches`.
 
 Toutes les opérations sensibles restent contrôlées côté Laravel par `auth:sanctum` et le rôle administrateur.
