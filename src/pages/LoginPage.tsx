@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { Turnstile } from "@marsidev/react-turnstile";
 import api from "../api/axios";
 import { getApiError } from "../api/admin";
 import { Icon } from "../components/admin/Icon";
@@ -29,14 +30,41 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [challenge, setChallenge] = useState<{
+    enabled: boolean;
+    configured: boolean;
+    site_key?: string | null;
+  } | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    api.get("/admin/security/challenge")
+      .then(({ data }) => active && setChallenge(data))
+      .catch(() => active && setError("Impossible de charger la protection de connexion."));
+
+    return () => { active = false; };
+  }, []);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError("");
 
+    if (challenge?.enabled && !turnstileToken) {
+      setError("Veuillez terminer la vérification de sécurité.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await api.post<LoginPayload>("/login", { email, password });
+      const response = await api.post<LoginPayload>("/admin/login", {
+        email,
+        password,
+        turnstile_token: turnstileToken || undefined,
+      });
       const payload = response.data;
       const token = payload.token || payload.access_token || payload.data?.token;
       const user = payload.user || payload.admin || payload.data?.user;
@@ -67,6 +95,8 @@ export default function LoginPage() {
       setError(message === "Network Error"
         ? "L’API GotFit est inaccessible. Vérifiez VITE_API_URL et le serveur Laravel."
         : getApiError(caught, message));
+      setTurnstileToken("");
+      setTurnstileKey((current) => current + 1);
     } finally {
       setLoading(false);
     }
@@ -135,14 +165,35 @@ export default function LoginPage() {
               />
             </label>
 
-            <button type="submit" className="login-submit" disabled={loading}>
+            {challenge?.enabled && challenge.configured && challenge.site_key && (
+              <div className="login-turnstile">
+                <Turnstile
+                  key={turnstileKey}
+                  siteKey={challenge.site_key}
+                  onSuccess={setTurnstileToken}
+                  onExpire={() => setTurnstileToken("")}
+                  onError={() => setTurnstileToken("")}
+                  options={{ theme: "light", language: "fr" }}
+                />
+              </div>
+            )}
+
+            {challenge?.enabled && !challenge.configured && (
+              <Notice tone="error">Turnstile est activé, mais les clés sont incomplètes côté API.</Notice>
+            )}
+
+            <button
+              type="submit"
+              className="login-submit"
+              disabled={loading || !challenge || (challenge.enabled && !challenge.configured)}
+            >
               {loading ? <><span className="ops-spinner"/>Connexion…</> : <>Accéder à la console<Icon name="arrow" size={18}/></>}
             </button>
           </form>
 
           <div className="login-security">
             <Icon name="shield" size={16}/>
-            Authentification protégée par Laravel Sanctum.
+            Authentification protégée par Laravel Sanctum{challenge?.enabled ? " et Cloudflare Turnstile" : ""}.
           </div>
         </div>
       </section>

@@ -12,6 +12,7 @@ import type {
   PackSession,
   Reservation,
   LegalDocument,
+  SystemSetting,
 } from "../types/admin";
 
 type ApiRecord = Record<string, unknown>;
@@ -241,5 +242,19 @@ export const adminApi = {
       admin_note: note || null,
     });
     return asRecord(data).reservation as Reservation;
+  },
+
+  async systemSettings(): Promise<SystemSetting[]> {
+    const { data } = await api.get("/admin/system-settings");
+    return listFrom<SystemSetting>(data, ["settings"]);
+  },
+
+  async updateSystemSettings(settings: Record<string, string | boolean>): Promise<SystemSetting[]> {
+    const { data } = await api.put("/admin/system-settings", { settings });
+    return listFrom<SystemSetting>(data, ["settings"]);
+  },
+
+  async resetSystemSetting(key: string): Promise<void> {
+    await api.delete(`/admin/system-settings/${encodeURIComponent(key)}`);
   },
 };

@@ -233,3 +233,15 @@ export type LegalDocument = {
   is_published: boolean;
   updated_at?: string | null;
 };
+
+export type SystemSetting = {
+  key: string;
+  group: string;
+  label: string;
+  type: "boolean" | "email" | "number" | "password" | "select" | "text" | "url";
+  secret: boolean;
+  options: string[];
+  configured: boolean;
+  source: "database" | "environment";
+  value: string;
+};

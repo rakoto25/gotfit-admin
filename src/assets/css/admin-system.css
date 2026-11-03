@@ -1586,6 +1586,120 @@
   }
 }
 
+.login-turnstile {
+  display: flex;
+  min-height: 65px;
+  align-items: center;
+  justify-content: center;
+}
+
+.config-groups {
+  display: grid;
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.config-group {
+  overflow: hidden;
+}
+
+.config-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--ops-border);
+}
+
+.config-group__header span,
+.config-field code,
+.config-source {
+  color: var(--ops-muted);
+}
+
+.config-group__header h2 {
+  margin: 3px 0 0;
+  font-size: 22px;
+}
+
+.config-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  padding: 24px;
+}
+
+.config-field {
+  min-width: 0;
+}
+
+.config-field__label {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 9px;
+}
+
+.config-field__label > label {
+  font-weight: 700;
+}
+
+.config-field__label > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.config-source {
+  font-size: 12px;
+}
+
+.config-field__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-field__control input:not([type="checkbox"]),
+.config-field__control select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ops-border);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--ops-ink);
+}
+
+.config-field code {
+  display: block;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.config-toggle {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.config-toggle input {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--ops-green);
+}
+
+@media (max-width: 900px) {
+  .config-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 660px) {
   .admin-topbar {
     min-height: 66px;
@@ -1703,5 +1817,22 @@
 
   .login-card h2 {
     font-size: 32px;
+  }
+
+  .config-group__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .config-group__header .ops-button {
+    width: 100%;
+  }
+
+  .config-fields {
+    padding: 18px;
+  }
+
+  .config-field__label {
+    flex-direction: column;
   }
 }

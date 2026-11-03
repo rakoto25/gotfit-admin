@@ -34,6 +34,12 @@ const navigation: Array<{ title: string; items: NavigationItem[] }> = [
       { to: "/messages", label: "Communications", icon: "message" },
     ],
   },
+  {
+    title: "Système",
+    items: [
+      { to: "/configuration", label: "Configuration & clés", icon: "settings" },
+    ],
+  },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -46,6 +52,7 @@ const pageTitles: Record<string, string> = {
   "/packs": "Packs & séances",
   "/messages": "Communications",
   "/cgv": "Conditions générales de vente",
+  "/configuration": "Configuration & clés",
 };
 
 const readAdmin = (): StoredAdmin => {
